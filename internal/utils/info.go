@@ -9,13 +9,13 @@ type Relay struct {
 	IPv6            string
 	ORPort          int
 	DirPort         int
-	Flags           []string
+	Flags           map[string]bool
 	Version         string
-	Protocols       map[string]string
+	Propertys       map[string][]string
 	Bandwidth       int
-	ExitPolicy      string
 	Digest          string
 	PublicationDate time.Time
+	Rules           map[string][]string
 }
 
 type Consensus struct {

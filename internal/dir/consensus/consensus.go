@@ -3,9 +3,7 @@ package consensus
 import (
 	"compress/zlib"
 	"errors"
-	"fmt"
 	"io"
-	"log"
 	"net/http"
 )
 
@@ -19,13 +17,7 @@ func GetValidConsensus() ([]byte, error) {
 
 	for _, v := range consesusList {
 
-		req, err := http.NewRequest("GET", v, nil)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		req.Header.Set("Accept", "text/plain")
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := http.Get(v)
 		if err != nil {
 			continue
 		}
@@ -40,6 +32,7 @@ func GetValidConsensus() ([]byte, error) {
 			if err != nil {
 				continue
 			}
+			defer read.Close()
 			reader = read
 		} else {
 			reader = resp.Body
@@ -53,8 +46,6 @@ func GetValidConsensus() ([]byte, error) {
 			continue
 		}
 
-		ParseConsensus(conensusBlob)
-		fmt.Println(v)
 		return conensusBlob, nil
 
 	}

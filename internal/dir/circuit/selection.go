@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+type Circuit struct {
+	GuardNode  utils.Relay
+	MiddleNode utils.Relay
+	ExitNode   utils.Relay
+}
+
 func SelectGuardNode(relays []utils.Relay) utils.Relay {
 
 	var best utils.Relay
@@ -74,12 +80,12 @@ func SelectExitNode(relays []utils.Relay, port int) utils.Relay {
 	return best
 }
 
-func GetCircuit(relays []utils.Relay, port int) []utils.Relay {
-	var circuit []utils.Relay
+func GetCircuit(relays []utils.Relay, port int) Circuit {
+	var circuit Circuit
 
-	circuit = append(circuit, SelectGuardNode(relays))
-	circuit = append(circuit, SelectMiddleNode(relays))
-	circuit = append(circuit, SelectExitNode(relays, port))
+	circuit.GuardNode = SelectGuardNode(relays)
+	circuit.MiddleNode = SelectMiddleNode(relays)
+	circuit.ExitNode = SelectExitNode(relays, port)
 
 	return circuit
 }

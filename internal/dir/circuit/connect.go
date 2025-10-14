@@ -2,50 +2,66 @@ package circuit
 
 import (
 	"crypto/tls"
-	"encoding/binary"
 	"fmt"
+	torcell "gonion/internal/cell"
 	"gonion/internal/utils"
 	"net"
+	"time"
 )
 
-func buildVersionsCell(versions []uint16) []byte {
-	cell := make([]byte, 512)
+func ConnectToGuard(guard *utils.Relay) (*tls.Conn, error) {
 
-	cell[0] = 0
-	cell[1] = 0
-	cell[2] = 0
-	cell[3] = 0
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", guard.IPv4, guard.ORPort), 10*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect: %v", err)
+	}
+	fmt.Println("TCP connection established")
 
-	binary.BigEndian.PutUint16(cell[3:5], 7)
+	conn.SetDeadline(time.Now().Add(30 * time.Second))
 
-	binary.BigEndian.PutUint16(cell[4:7], 4)
-
-	var o int = 0
-	for i := 6; i < len(versions); i++ {
-		binary.BigEndian.AppendUint16(cell[i:], versions[o])
-		o++
+	tlsConn := tls.Client(conn, &tls.Config{
+		InsecureSkipVerify: true,
+		MinVersion:         tls.VersionTLS12,
+		MaxVersion:         tls.VersionTLS12,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+			tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+			tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect: %v", err)
 	}
 
-	return cell
-}
+	if err := tlsConn.Handshake(); err != nil {
+		return nil, err
+	}
+	fmt.Println("Connected to guard node")
 
-func ConnectGuard(guard utils.Relay) (net.Conn, error) {
+	fmt.Printf("Consensus fingerprint: %s\n", guard.Identity)
 
-	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", guard.IPv4, guard.ORPort), &tls.Config{InsecureSkipVerify: true})
+	versionsCell, err := torcell.CreateVersionsCell([]uint16{4, 5})
 	if err != nil {
 		return nil, err
 	}
 
-	cell := buildVersionsCell([]uint16{4})
-
-	_, err = conn.Write(cell)
-	if err != nil {
-		return nil, err
+	if _, err := tlsConn.Write(versionsCell.Serialize()); err != nil {
+		return nil, fmt.Errorf("failed to send versions cell: %v", err)
 	}
 
-	resp := make([]byte, 514)
+	fmt.Println("Versions cell sent successfully")
 
-	n, err := conn.Read(resp)
+	response := make([]byte, 512)
+	n, err := tlsConn.Read(response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %v", err)
+	}
 
-	return conn, err
+	fmt.Printf("Received %d bytes response: %x\n", n, response[:n])
+	fmt.Println("bin response:", response)
+
+	return tlsConn, nil
 }

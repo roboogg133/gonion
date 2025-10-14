@@ -32,9 +32,6 @@ func ConnectToGuard(guard *utils.Relay) (*tls.Conn, error) {
 			tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
 		},
 	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect: %v", err)
-	}
 
 	if err := tlsConn.Handshake(); err != nil {
 		return nil, err

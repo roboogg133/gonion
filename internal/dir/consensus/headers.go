@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func ValidConsensus(file []byte) bool {
+func validConsensus(file []byte) bool {
 	reader := bytes.NewReader(file)
 	scanner := bufio.NewScanner(reader)
 
@@ -32,11 +32,8 @@ func ValidConsensus(file []byte) bool {
 
 	}
 	now := time.Now().UTC()
-	if now.After(validAfter) && now.Before(validUntil) {
+	if (now.Equal(validAfter) || now.After(validAfter)) && now.Before(validUntil) {
 		return true
-	} else if now.Equal(validAfter) {
-		return true
-
 	}
 
 	return false

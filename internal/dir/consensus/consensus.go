@@ -42,7 +42,7 @@ func GetValidConsensus() ([]byte, error) {
 		if err != nil {
 			continue
 		}
-		if !ValidConsensus(conensusBlob) {
+		if !validConsensus(conensusBlob) {
 			continue
 		}
 

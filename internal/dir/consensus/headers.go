@@ -3,8 +3,13 @@ package consensus
 import (
 	"bufio"
 	"bytes"
+	"compress/zlib"
+	"errors"
 	"fmt"
 	"gonion/internal/utils"
+	"io"
+	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -115,9 +120,88 @@ func ParseConsensus(file []byte) utils.Consensus {
 				}
 			}
 
-			consensus.Relays = append(consensus.Relays, relay)
+			consensus.Relays[relay.IPv4] = relay
 		}
 
 	}
 	return consensus
+}
+
+func ParseKeys(relays map[string]utils.Relay) map[string]utils.Relay {
+	file, err := getServerTorAll()
+	if err != nil {
+		return nil
+	}
+
+	reader := bytes.NewReader(file)
+	scanner := bufio.NewScanner(reader)
+
+	for scanner.Scan() {
+
+		line := scanner.Text()
+		if strings.HasPrefix(line, "router ") {
+			fLine := strings.Fields(line)
+			ipAddr := fLine[2]
+			fLine = nil
+			runtime.GC()
+			for scanner.Scan() {
+				line = scanner.Text()
+				if strings.HasPrefix(line, "identity-ed25519") {
+					scanner.Scan()
+					scanner.Scan()
+					line = scanner.Text()
+					fulltext := strings.Join()
+				}
+			}
+
+		}
+	}
+
+	return nil
+}
+
+func getServerTorAll() ([]byte, error) {
+
+	consesusList := []string{
+		Tor26Info, Moria1Info, DizumInfo,
+		GabelmooInfo, DannenbergInfo, MaatuskaInfo,
+		LongclawInfo, BastetInfo, FaravaharInfo,
+	}
+
+	for _, v := range consesusList {
+
+		resp, err := http.Get(v)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			continue
+		}
+
+		var reader io.Reader
+		if resp.Header.Get("Content-Encoding") == "deflate" {
+			read, err := zlib.NewReader(resp.Body)
+			if err != nil {
+				continue
+			}
+			defer read.Close()
+			reader = read
+		} else {
+			reader = resp.Body
+		}
+
+		conensusBlob, err := io.ReadAll(reader)
+		if err != nil {
+			continue
+		}
+		if !validConsensus(conensusBlob) {
+			continue
+		}
+
+		return conensusBlob, nil
+
+	}
+
+	return nil, errors.New("failed to fetch all /tor/server/all")
 }

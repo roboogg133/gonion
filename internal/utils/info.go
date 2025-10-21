@@ -1,6 +1,13 @@
 package utils
 
-import "time"
+import (
+	"time"
+)
+
+type NtorOnionKeyXCert struct {
+	Numbers     map[int]int
+	Ed25519Cert []byte
+}
 
 type Relay struct {
 	Nickname        string
@@ -16,12 +23,22 @@ type Relay struct {
 	Digest          string
 	PublicationDate time.Time
 	Rules           map[string][]string
+
+	IdentityEd25519   []byte
+	MasterKeyEd25519  []byte
+	OnionKey          []byte // RSA
+	SingningKey       []byte // RSA
+	OnionKeyXCert     []byte
+	NtorOnionKeyXCert NtorOnionKeyXCert
+
+	RouterSignatureEd25519 []byte
+	RoutserSignature       []byte
 }
 
 type Consensus struct {
 	NetworkStatusVersion int
 	VoteStatus           string
 	ValidAfter           time.Time
-	Relays               []Relay
+	Relays               map[string]Relay
 	Signatures           []string
 }

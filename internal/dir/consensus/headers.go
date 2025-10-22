@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"bytes"
 	"compress/zlib"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"gonion/internal/utils"
 	"io"
+	"log"
 	"net/http"
-	"runtime"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -49,6 +51,7 @@ func ParseConsensus(file []byte) utils.Consensus {
 	scanner := bufio.NewScanner(reader)
 
 	var consensus utils.Consensus
+	consensus.Relays = make(map[string]utils.Relay)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -132,6 +135,8 @@ func ParseKeys(relays map[string]utils.Relay) map[string]utils.Relay {
 	if err != nil {
 		return nil
 	}
+	os.WriteFile("sdafasdfa", file, 0777)
+	fmt.Println("got server tor all")
 
 	reader := bytes.NewReader(file)
 	scanner := bufio.NewScanner(reader)
@@ -142,22 +147,78 @@ func ParseKeys(relays map[string]utils.Relay) map[string]utils.Relay {
 		if strings.HasPrefix(line, "router ") {
 			fLine := strings.Fields(line)
 			ipAddr := fLine[2]
+
+			if _, exists := relays[ipAddr]; !exists {
+				continue
+			}
 			fLine = nil
-			runtime.GC()
 			for scanner.Scan() {
 				line = scanner.Text()
 				if strings.HasPrefix(line, "identity-ed25519") {
 					scanner.Scan()
+
+					var line string
+					var fulltext string
+
+					for {
+						scanner.Scan()
+						line = scanner.Text()
+						if strings.HasPrefix(line, "-----END") {
+							break
+						}
+						fulltext = fmt.Sprintf("%s%s", fulltext, line)
+					}
+					fmt.Println(ipAddr, fulltext)
+
+					relayCopy := relays[ipAddr]
+					relayCopy.IdentityEd25519, err = base64.StdEncoding.DecodeString(fulltext)
+					if err != nil {
+						log.Println(err)
+						return nil
+					}
+					relays[ipAddr] = relayCopy
+				} else if strings.HasPrefix(line, "master-key-ed25519 ") {
+					stringFields := strings.Fields(line)
+
+					relayCopy := relays[ipAddr]
+					relayCopy.MasterKeyEd25519, err = base64.RawStdEncoding.DecodeString(stringFields[1])
+					if err != nil {
+						log.Println(err)
+						return nil
+					}
+					relays[ipAddr] = relayCopy
+				} else if strings.HasPrefix(line, "onion-key") {
 					scanner.Scan()
-					line = scanner.Text()
-					fulltext := strings.Join()
+
+					var line string
+					var fulltext string
+
+					for {
+						scanner.Scan()
+						line = scanner.Text()
+						if strings.HasPrefix(line, "-----END") {
+							break
+						}
+						fulltext = fmt.Sprintf("%s%s", fulltext, line)
+					}
+
+					relayCopy := relays[ipAddr]
+					relayCopy.OnionKey, err = base64.StdEncoding.DecodeString(fulltext)
+					if err != nil {
+						log.Println(err)
+						return nil
+					}
+					relays[ipAddr] = relayCopy
+				} else if strings.HasPrefix(line, "router-signature") {
+					fmt.Println("BREAKING LOOP")
+					break
 				}
 			}
 
 		}
 	}
 
-	return nil
+	return relays
 }
 
 func getServerTorAll() ([]byte, error) {
@@ -169,6 +230,7 @@ func getServerTorAll() ([]byte, error) {
 	}
 
 	for _, v := range consesusList {
+		fmt.Printf("Dowloading %s\n", v)
 
 		resp, err := http.Get(v)
 		if err != nil {
@@ -178,9 +240,11 @@ func getServerTorAll() ([]byte, error) {
 		if resp.StatusCode != 200 {
 			continue
 		}
+		fmt.Println("answer 200")
 
 		var reader io.Reader
 		if resp.Header.Get("Content-Encoding") == "deflate" {
+			fmt.Println("deflating")
 			read, err := zlib.NewReader(resp.Body)
 			if err != nil {
 				continue
@@ -193,9 +257,7 @@ func getServerTorAll() ([]byte, error) {
 
 		conensusBlob, err := io.ReadAll(reader)
 		if err != nil {
-			continue
-		}
-		if !validConsensus(conensusBlob) {
+			fmt.Println(err)
 			continue
 		}
 

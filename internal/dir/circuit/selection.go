@@ -12,7 +12,7 @@ type Circuit struct {
 	ExitNode   utils.Relay
 }
 
-func SelectGuardNode(relays []utils.Relay) utils.Relay {
+func SelectGuardNode(relays map[string]utils.Relay) utils.Relay {
 
 	var best utils.Relay
 
@@ -24,19 +24,19 @@ func SelectGuardNode(relays []utils.Relay) utils.Relay {
 	return best
 }
 
-func SelectMiddleNode(relays []utils.Relay) utils.Relay {
+func SelectMiddleNode(relays map[string]utils.Relay) utils.Relay {
 
 	var best utils.Relay
 
 	for _, relay := range relays {
-		if relay.Bandwidth > best.Bandwidth && !relay.Flags["Guard"] && !relay.Flags["Exit"] && relay.Flags["Running"] {
+		if relay.Bandwidth > best.Bandwidth && relay.Flags["Stable"] && relay.Flags["Running"] {
 			best = relay
 		}
 	}
 	return best
 }
 
-func SelectExitNode(relays []utils.Relay, port int) utils.Relay {
+func SelectExitNode(relays map[string]utils.Relay, port int) utils.Relay {
 
 	var best utils.Relay
 
@@ -80,7 +80,7 @@ func SelectExitNode(relays []utils.Relay, port int) utils.Relay {
 	return best
 }
 
-func GetCircuit(relays []utils.Relay, port int) Circuit {
+func GetCircuit(relays map[string]utils.Relay, port int) Circuit {
 	var circuit Circuit
 
 	circuit.GuardNode = SelectGuardNode(relays)
